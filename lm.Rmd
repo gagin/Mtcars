@@ -1,0 +1,73 @@
+---
+title: "Comparison on fuel economy for manual vs automatic transmission"
+author: "Alex"
+date: "Thursday, October 15, 2015"
+output: pdf_document
+---
+
+## Summary
+
+```{r, include=FALSE}
+# Load data and libraries
+library(plyr)
+library(dplyr)
+library(ggplot2)
+library(datasets)
+data(mtcars)
+library(GGally)
+m<-mtcars
+m$am<-revalue(as.factor(mtcars$am), replace=c("0"="Automatic","1"="Manual"))
+```
+
+### Data exploration
+
+Mean mpg for A/M transmission.
+```{r}
+m %>% group_by(am) %>% dplyr::summarize(mean=mean(mpg))
+m %>% group_by(am, cyl) %>% dplyr::summarize(mean=mean(mpg))
+
+fit<-lm(mpg~.,m)
+fit<-lm(mpg~am,m)
+
+```
+Multivariate model has lower slope for A/M - does this mean that change in MPG
+that we see attributed to A/M change in single-variable model is actually
+caused by other parameters?
+
+Assumption is that mpg decreases not just because of transmission, but because
+of other factors as well.
+
+Let's look at V6 separately and drop some variables.
+
+```{r}
+m6<-m[m$cyl==6,] %>% select(-carb,-drat,-cyl)
+g = ggpairs(m6, lower = list(continuous = "smooth"),params = c(method = "loess"))
+g
+lm(mpg~.,m6)
+```
+
+
+## Appendices
+
+### Appendix 1. Code book for the dataset
+
+A data frame with 32 observations on 11 variables.
+
+[, 1]         mpg	 Miles/(US) gallon
+[, 2]	 cyl	 Number of cylinders
+[, 3]	 disp	 Displacement (cu.in.)
+[, 4]	 hp	 Gross horsepower
+[, 5]	 drat	 Rear axle ratio
+[, 6]	 wt	 Weight (lb/1000)
+[, 7]	 qsec	 1/4 mile time
+[, 8]	 vs	 V/S
+[, 9]	 am	 Transmission (0 = automatic, 1 = manual)
+[,10]	 gear	 Number of forward gears
+[,11]	 carb	 Number of carburetors
+
+### Appendix 2. Multi-variable correlation
+
+```{r, cache=TRUE}
+g = ggpairs(mtcars, lower = list(continuous = "smooth"),params = c(method = "loess"))
+g
+```
