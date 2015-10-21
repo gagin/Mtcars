@@ -2,7 +2,7 @@
 title: "Comparison on fuel economy for manual vs automatic transmission"
 author: "Alex"
 date: "Thursday, October 15, 2015"
-output: pdf_document
+output: html_document
 ---
 
 ## Summary
@@ -23,29 +23,62 @@ m$am<-revalue(as.factor(mtcars$am), replace=c("0"="Automatic","1"="Manual"))
 
 Mean mpg for A/M transmission.
 ```{r}
-m %>% group_by(am) %>% dplyr::summarize(mean=mean(mpg))
-m %>% group_by(am, cyl) %>% dplyr::summarize(mean=mean(mpg))
-
-fit<-lm(mpg~.,m)
-fit<-lm(mpg~am,m)
-
+#m %>% group_by(am) %>% dplyr::summarize(mean=mean(mpg))
+plot(x=m$am,y=m$mpg)
+(m %>% group_by(am, cyl) %>% dplyr::summarize(mean=mean(mpg)) -> mm)
+mm$cyl<-as.factor(mm$cyl)
+print(ggplot(data = mm, aes(x = cyl, y=mean, fill=am)) +
+              geom_bar(stat="identity", position="dodge") +
+              ylab(label = "Mean mpg") +
+              scale_x_discrete("Cylinders", breaks=c("4","6","8")) +
+              guides(fill=guide_legend(title="Transmission"))
+      )
 ```
-Multivariate model has lower slope for A/M - does this mean that change in MPG
-that we see attributed to A/M change in single-variable model is actually
-caused by other parameters?
 
-Assumption is that mpg decreases not just because of transmission, but because
-of other factors as well.
-
-Let's look at V6 separately and drop some variables.
+It's clear visually that the difference in mpg is dependant on other variables,
+not just on the transmission type.
+In particular, difference between automatic and manual declines with number
+of cylinders. For 8-cylinder (more powerful) cars it's much less. Is it even
+significant there?
 
 ```{r}
-m6<-m[m$cyl==6,] %>% select(-carb,-drat,-cyl)
-g = ggpairs(m6, lower = list(continuous = "smooth"),params = c(method = "loess"))
-g
-lm(mpg~.,m6)
+t.test(m[m$cyl==8 & m$am == "Automatic", "mpg"],
+       m[m$cyl==8 & m$am == "Manual","mpg"],
+       var.equal = FALSE,
+       paired = FALSE)
 ```
 
+Confidence interval includes zero, so for 8-cylinder engines we can't say
+there's a significant difference in fuel economy between automatic and manual.
+Apparently, the difference that we know is in there becomes insignificant
+compared to the total wastefulness of a powerful engine.
+
+Ideally, we should be comparing data for the same car models where only
+the transmission type is the difference - anekdotally, it's known that
+manufacturer's MPG specifications are different in this case, and manual
+transmission option usually specifies higher MPG.
+
+```{r}
+(fit<-lm(mpg~.,m))
+(fitM<-lm(mpg~am,m))
+```
+
+Multivariate model has lower slope for A/M - so out of 7 mpg in reported
+difference for manual and automatic transmissions only 2.5 are explained
+by transmission, while rest is influenced by other factors, weight being
+the largest.
+
+Does average weight indeed different for cars with automatic and manual
+transmissions?
+
+```{r}
+m %>% group_by(am) %>% dplyr::summarize(mean.weight=mean(wt))
+```
+
+Indeed, heavier cars are more likely to be equipped with automatic.
+
+Now, is that 2 mpg difference statistically significant? In our 6-cylinder
+t.test we've seen there's no difference.
 
 ## Appendices
 
@@ -53,16 +86,16 @@ lm(mpg~.,m6)
 
 A data frame with 32 observations on 11 variables.
 
-[, 1]         mpg	 Miles/(US) gallon
-[, 2]	 cyl	 Number of cylinders
-[, 3]	 disp	 Displacement (cu.in.)
-[, 4]	 hp	 Gross horsepower
-[, 5]	 drat	 Rear axle ratio
-[, 6]	 wt	 Weight (lb/1000)
-[, 7]	 qsec	 1/4 mile time
-[, 8]	 vs	 V/S
-[, 9]	 am	 Transmission (0 = automatic, 1 = manual)
-[,10]	 gear	 Number of forward gears
+[, 1]         mpg	 Miles/(US) gallon  
+[, 2]	 cyl	 Number of cylinders  
+[, 3]	 disp	 Displacement (cu.in.)  
+[, 4]	 hp	 Gross horsepower  
+[, 5]	 drat	 Rear axle ratio  
+[, 6]	 wt	 Weight (lb/1000)  
+[, 7]	 qsec	 1/4 mile time  
+[, 8]	 vs	 V/S  
+[, 9]	 am	 Transmission (0 = automatic, 1 = manual)  
+[,10]	 gear	 Number of forward gears  
 [,11]	 carb	 Number of carburetors
 
 ### Appendix 2. Multi-variable correlation
@@ -71,3 +104,6 @@ A data frame with 32 observations on 11 variables.
 g = ggpairs(mtcars, lower = list(continuous = "smooth"),params = c(method = "loess"))
 g
 ```
+
+We see that mpg correlates mostly to cars' power - expresses ad engine volume
+and number of cylinders - and weight, and less to transmission type.
