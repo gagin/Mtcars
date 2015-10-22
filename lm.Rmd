@@ -7,6 +7,16 @@ output: html_document
 
 ## Summary
 
+While intuitively it looks like manual transmission provides better fuel
+economy, statistical analysis of specifications for 32 cars of 1973-74 year
+models does not allow to do such conclusion. A better explanation for
+difference in miles per gallon is the difference in car weights.
+From the data presented, there's more than 5% chance that cars with manual
+transmissions may just look more efficient while in fact manual transmissions
+are just more likely
+to be used on lighter models, and their higher mpg rating is just
+an consequence.
+
 ```{r, include=FALSE}
 # Load data and libraries
 library(plyr)
@@ -15,17 +25,37 @@ library(ggplot2)
 library(datasets)
 data(mtcars)
 library(GGally)
-m<-mtcars
-m$am<-revalue(as.factor(mtcars$am), replace=c("0"="Automatic","1"="Manual"))
+m    <- mtcars
+m$am <- revalue(as.factor(mtcars$am), replace=c("0"="Automatic","1"="Manual"))
+m4   <- m[m$cyl == 4,]
+m6   <- m[m$cyl == 6,]
+m8   <- m[m$cyl == 8,]
 ```
 
-### Data exploration
+## Single-variable analysis
 
-Mean mpg for A/M transmission.
+Direct comparison of fuel economy for cars with manual and automatic
+transmission shows visible difference.
+
 ```{r}
-#m %>% group_by(am) %>% dplyr::summarize(mean=mean(mpg))
 plot(x=m$am,y=m$mpg)
-(m %>% group_by(am, cyl) %>% dplyr::summarize(mean=mean(mpg)) -> mm)
+(fitS<-lm(mpg~am,m))
+```
+
+Linear model for MPG dependancy on transmission type seems to show that
+upgrading transmission to automatic will lose 7 miles less driven per gallon
+of fuel.
+
+But because this wasn't a randomized test, there's a chance that this
+difference isn't actually real, and there was a confounding variable that
+makes manufactures install automatic transmission in car that would have worse
+MPGs anyway.
+
+First, it can be shown that the scale of this difference is smaller for cars
+where engines have more cylinders.
+
+```{r}
+m %>% group_by(am, cyl) %>% dplyr::summarize(mean=mean(mpg)) -> mm
 mm$cyl<-as.factor(mm$cyl)
 print(ggplot(data = mm, aes(x = cyl, y=mean, fill=am)) +
               geom_bar(stat="identity", position="dodge") +
@@ -35,38 +65,59 @@ print(ggplot(data = mm, aes(x = cyl, y=mean, fill=am)) +
       )
 ```
 
-It's clear visually that the difference in mpg is dependant on other variables,
-not just on the transmission type.
-In particular, difference between automatic and manual declines with number
-of cylinders. For 8-cylinder (more powerful) cars it's much less. Is it even
-significant there?
+It can't be even said with 95% confidence that for cars with 8-cylinder engines
+the difference is even statistically significant.
 
 ```{r}
-t.test(m[m$cyl==8 & m$am == "Automatic", "mpg"],
-       m[m$cyl==8 & m$am == "Manual","mpg"],
+t.test(m8[m8$am == "Automatic", "mpg"],
+       m8[m8$am == "Manual","mpg"],
        var.equal = FALSE,
        paired = FALSE)
 ```
 
-Confidence interval includes zero, so for 8-cylinder engines we can't say
-there's a significant difference in fuel economy between automatic and manual.
-Apparently, the difference that we know is in there becomes insignificant
-compared to the total wastefulness of a powerful engine.
+Does this mean that the difference becomes insignificant
+compared to the total wastefulness of a powerful engine? Let's include other
+parameters in analysis.
+
+## Multi-variable analysis
+
+A linear model that includes all variables attributes only difference of
+2 miles per gallon to transmission type.
+
+```{r}
+(fitM<-lm(mpg~.,m))
+```
+
+This model has too many parameters to provide us with clear answers when
+there are just 32 observations - we have too freedom in explaining variability
+in the dataset. Many of variables are obviously correlated - heavier cars
+need bigger engines with higher displacement volume that achieved by more
+cylinders, and than this engines will consume more fuel, but will go faster,
+given equal weight.
+
+By looking
+correlation coeffificents between different parameters of the cars
+(see Appendix), we see that weight has the highest correlation with MPG.
+
+The model where we only consider weight and transmission type, shows that
+transmission infuence on MPG is very small, and not significant.
+
+```{r}
+(fit2<-lm(mpg~wt+am,m))
+confint(fit2)
+```
 
 Ideally, we should be comparing data for the same car models where only
 the transmission type is the difference - anekdotally, it's known that
 manufacturer's MPG specifications are different in this case, and manual
 transmission option usually specifies higher MPG.
 
-```{r}
-(fit<-lm(mpg~.,m))
-(fitM<-lm(mpg~am,m))
-```
+
 
 Multivariate model has lower slope for A/M - so out of 7 mpg in reported
 difference for manual and automatic transmissions only 2.5 are explained
 by transmission, while rest is influenced by other factors, weight being
-the largest.
+the largest. And we can't be sure enough even in that number.
 
 Does average weight indeed different for cars with automatic and manual
 transmissions?
@@ -107,3 +158,11 @@ g
 
 We see that mpg correlates mostly to cars' power - expresses ad engine volume
 and number of cylinders - and weight, and less to transmission type.
+
+### Appendix 3. Weights of cars
+
+```{r}
+plot(m4$am, m4$wt, main = "Weights of cars with 4-cylinder engines")
+plot(m8$am, m8$wt, main = "Weights of cars with 8-cylinder engines")
+confint(lm(wt~am+vs+gear+carb,m))
+```
