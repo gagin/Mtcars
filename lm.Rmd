@@ -1,8 +1,9 @@
 ---
-title: "Comparison on fuel economy for manual vs automatic transmission"
+title: "Comparison on fuel economy for cars with manual vs automatic transmission"
 author: "Alex"
 date: "Thursday, October 15, 2015"
 output: html_document
+       
 ---
 
 ## Summary
@@ -72,7 +73,7 @@ the difference is even statistically significant.
 t.test(m8[m8$am == "Automatic", "mpg"],
        m8[m8$am == "Manual","mpg"],
        var.equal = FALSE,
-       paired = FALSE)
+       paired = FALSE)$conf
 ```
 
 Does this mean that the difference becomes insignificant
@@ -107,30 +108,6 @@ transmission infuence on MPG is very small, and not significant.
 confint(fit2)
 ```
 
-Ideally, we should be comparing data for the same car models where only
-the transmission type is the difference - anekdotally, it's known that
-manufacturer's MPG specifications are different in this case, and manual
-transmission option usually specifies higher MPG.
-
-
-
-Multivariate model has lower slope for A/M - so out of 7 mpg in reported
-difference for manual and automatic transmissions only 2.5 are explained
-by transmission, while rest is influenced by other factors, weight being
-the largest. And we can't be sure enough even in that number.
-
-Does average weight indeed different for cars with automatic and manual
-transmissions?
-
-```{r}
-m %>% group_by(am) %>% dplyr::summarize(mean.weight=mean(wt))
-```
-
-Indeed, heavier cars are more likely to be equipped with automatic.
-
-Now, is that 2 mpg difference statistically significant? In our 6-cylinder
-t.test we've seen there's no difference.
-
 ## Appendices
 
 ### Appendix 1. Code book for the dataset
@@ -152,8 +129,7 @@ A data frame with 32 observations on 11 variables.
 ### Appendix 2. Multi-variable correlation
 
 ```{r, cache=TRUE}
-g = ggpairs(mtcars, lower = list(continuous = "smooth"),params = c(method = "loess"))
-g
+print(ggpairs(mtcars, lower = list(continuous = "smooth"),params = c(method = "loess")))
 ```
 
 We see that mpg correlates mostly to cars' power - expresses ad engine volume
@@ -161,8 +137,19 @@ and number of cylinders - and weight, and less to transmission type.
 
 ### Appendix 3. Weights of cars
 
+Just to be sure, let's check if average weight indeed different for cars with
+automatic and manual transmissions.
+
+```{r}
+plot(m$am,m$wt)
+```
+
+We can also see that
+the difference is weights is higher for 4-cylinder models, so that explains
+why MPG difference for automatic and manual transmissions was higher for
+4-cylinder models.
+
 ```{r}
 plot(m4$am, m4$wt, main = "Weights of cars with 4-cylinder engines")
 plot(m8$am, m8$wt, main = "Weights of cars with 8-cylinder engines")
-confint(lm(wt~am+vs+gear+carb,m))
 ```
