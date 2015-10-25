@@ -1,0 +1,131 @@
+---
+title: "Transmission type effects on fuel economy"
+author: "Alex Gaggin"
+date: "Thursday, October 25, 2015"
+output:
+  pdf_document:
+    fig_height: 3.2
+---
+
+### Summary
+
+While intuitively it looks like manual transmission provides much better fuel
+economy, statistical analysis of specifications for 32 cars of 1973-74 year
+models shows that most of this effect caused by manufacturers' preference
+to install automatic transmissions on heavier cars, which are naturally driven
+less miles per gallon. Transmission type does influence fuel economy, but it's
+third source of fuel economy influence after weight and quarter mile time. As
+it's trumped by first two influencers, its size of effect is hard to measure
+confidently - the data shows that **switching to manual can save from 0.05 to
+5.8 miles per gallon**.
+
+
+```{r, include=FALSE}
+# Load data and libraries
+library(plyr)
+library(dplyr)
+```
+
+### Exploration of the Motor Trends dataset
+
+```{r}
+data(mtcars); dim(mtcars); head(mtcars,3)
+```
+
+Dataset has 32 observations on 11 variables and their descriptions are available
+in dataset's help page.
+By checking correlations, we see that weight variable affects the fuel economy
+the most - and by plotting mpg and weight against transmission types (see
+Appendix 1) we see that weight difference for transmissions is stronger than mpg
+difference.
+
+```{r}
+cor(mtcars)[, "mpg"] %>% "["(-1) %>% abs %>% sort(decr=TRUE) %>% signif(2)
+```
+
+### Significance of MPG difference for transmission types
+
+```{r}
+t.test(mtcars[mtcars$am == 0, ]$mpg, mtcars[mtcars$am == 1, ]$mpg)
+```
+
+Small p-value shows that we have to accept alternative hypothesis and presume
+there's a meaningful difference in mean mpgs between automatic and manual
+transmissions.
+
+Strong relation doesn't mean causation. Let's
+model if this relation still stands after other factors are taken into account.
+
+### Linear models
+
+First, let's model dependance just for weight.
+
+```{r}
+fit1 <- lm(mpg ~ wt, mtcars)
+summary(fit1)$coefficients
+```
+
+Let's see what variable correlate the most with the residuals and include it
+to the model.
+
+```{r}
+mtcars[ ,-c(1, 6)] %>% cbind(resid(fit1)) %>% cor %>%
+        "["(, 10) %>% "["(1:9) %>% abs %>% which.max %>% names
+fit2 <- lm(mpg ~ wt + qsec, mtcars)
+summary(fit2)$coefficients
+```
+
+We see that time to quarter mile is also significant. It makes sense -
+presumably
+there should be two types of wasteful cars - large (heavy) ones,
+and sporty (with rapid acceleration to quarter mile) ones. Reiterating the same
+logic, we build next two nested models.
+
+```{r, include=FALSE,eval=FALSE}
+mtcars[ ,-c(1, 6, 7)] %>% cbind(resid(fit2)) %>% cor %>%
+        "["(, 9) %>% "["(1:8) %>% abs %>% which.max %>% names
+mtcars[ ,-c(1, 6, 9, 7)] %>% cbind(resid(fit3)) %>% cor %>%
+        "["(, 8) %>% "["(1:7) %>% abs %>% which.max %>% names
+```
+```{r}
+fit3 <- lm(mpg ~ wt + qsec + factor(am), mtcars)
+fit4 <- lm(mpg ~ wt + qsec + factor(am) + carb, mtcars)
+anova(fit1, fit2, fit3, fit4)
+```
+
+We see that three-variable model still significantly improved results, while
+including carb variable doesn't improve it further. Residuals for three-variable
+model don't have any apparent patterns in them, although they aren't ideally
+normal - a bit skewed. Still, we accept this model as the best linear model we
+could build on this dataset.
+
+```{r}
+summary(fit3)$coefficients
+summary(fit3)$r.squared
+fit3 %>% confint %>% signif(2)
+```
+
+We see that manual transmissions allow to get better mileage, although exact
+scale of that effect is hard to pin down, as it's trumped by bigger effects
+of cars' weights and acceleration capabilities expressed as the quarter mile time.
+It's barely fits 95% significance rule and can be anywhere between 0.05 and 5.8
+miles per gallon.
+
+## Appendices.
+
+### Appendix 1. Charts for mpg and weight dependance on transmission types
+
+```{r}
+par(mfrow = c(1, 2))
+amFactor <- factor(mtcars$am, levels=0:1, labels=c("Automatic", "Manual"))
+plot(amFactor, mtcars$mpg, xlab="Transmission type", ylab="Miles per gallon")
+plot(amFactor, mtcars$wt, xlab="Transmission type", ylab="Weight, 1000lb")
+```
+
+### Appendix 2. Residuals analysis for the selected model
+
+
+```{r}
+par(mfrow = c(1, 2)); plot(fit3, which = 1:2)
+```
+
