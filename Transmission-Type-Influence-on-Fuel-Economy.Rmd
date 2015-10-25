@@ -3,8 +3,8 @@ title: "Transmission type effects on fuel economy"
 author: "Alex Gaggin"
 date: "Thursday, October 25, 2015"
 output:
-  pdf_document:
-    fig_height: 3.2
+  pdf_document
+
 ---
 
 ### Summary
@@ -22,15 +22,12 @@ confidently - the data shows that **switching to manual can save from 0.05 to
 
 ```{r, include=FALSE}
 # Load data and libraries
-library(plyr)
 library(dplyr)
+library(datasets)
+data(mtcars)
 ```
 
 ### Exploration of the Motor Trends dataset
-
-```{r}
-data(mtcars); dim(mtcars); head(mtcars,3)
-```
 
 Dataset has 32 observations on 11 variables and their descriptions are available
 in dataset's help page.
@@ -46,29 +43,22 @@ cor(mtcars)[, "mpg"] %>% "["(-1) %>% abs %>% sort(decr=TRUE) %>% signif(2)
 ### Significance of MPG difference for transmission types
 
 ```{r}
-t.test(mtcars[mtcars$am == 0, ]$mpg, mtcars[mtcars$am == 1, ]$mpg)
+t.test(mtcars[mtcars$am == 0, ]$mpg, mtcars[mtcars$am == 1, ]$mpg)$p.value
 ```
 
 Small p-value shows that we have to accept alternative hypothesis and presume
 there's a meaningful difference in mean mpgs between automatic and manual
-transmissions.
-
-Strong relation doesn't mean causation. Let's
+transmissions. Still, strong relation doesn't mean causation. Let's
 model if this relation still stands after other factors are taken into account.
 
 ### Linear models
 
-First, let's model dependance just for weight.
+First, let's model dependance just for weight, and then find which of other
+variables is most correlated with the residuals. We add then this variable
+to the model as a second regressor.
 
 ```{r}
 fit1 <- lm(mpg ~ wt, mtcars)
-summary(fit1)$coefficients
-```
-
-Let's see what variable correlate the most with the residuals and include it
-to the model.
-
-```{r}
 mtcars[ ,-c(1, 6)] %>% cbind(resid(fit1)) %>% cor %>%
         "["(, 10) %>% "["(1:9) %>% abs %>% which.max %>% names
 fit2 <- lm(mpg ~ wt + qsec, mtcars)
@@ -78,7 +68,8 @@ summary(fit2)$coefficients
 We see that time to quarter mile is also significant. It makes sense -
 presumably
 there should be two types of wasteful cars - large (heavy) ones,
-and sporty (with rapid acceleration to quarter mile) ones. Reiterating the same
+and sporty (with rapid acceleration to quarter mile) ones.  
+Reiterating the same
 logic, we build next two nested models.
 
 ```{r, include=FALSE,eval=FALSE}
@@ -95,13 +86,11 @@ anova(fit1, fit2, fit3, fit4)
 
 We see that three-variable model still significantly improved results, while
 including carb variable doesn't improve it further. Residuals for three-variable
-model don't have any apparent patterns in them, although they aren't ideally
+model don't have any apparent patterns in them (see Appendix 2), although they aren't ideally
 normal - a bit skewed. Still, we accept this model as the best linear model we
 could build on this dataset.
 
 ```{r}
-summary(fit3)$coefficients
-summary(fit3)$r.squared
 fit3 %>% confint %>% signif(2)
 ```
 
@@ -111,7 +100,9 @@ of cars' weights and acceleration capabilities expressed as the quarter mile tim
 It's barely fits 95% significance rule and can be anywhere between 0.05 and 5.8
 miles per gallon.
 
-## Appendices.
+\newpage
+
+## Appendices
 
 ### Appendix 1. Charts for mpg and weight dependance on transmission types
 
@@ -122,8 +113,9 @@ plot(amFactor, mtcars$mpg, xlab="Transmission type", ylab="Miles per gallon")
 plot(amFactor, mtcars$wt, xlab="Transmission type", ylab="Weight, 1000lb")
 ```
 
-### Appendix 2. Residuals analysis for the selected model
+\newpage
 
+### Appendix 2. Residuals analysis for the selected model
 
 ```{r}
 par(mfrow = c(1, 2)); plot(fit3, which = 1:2)
